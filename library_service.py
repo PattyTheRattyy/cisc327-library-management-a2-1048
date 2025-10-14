@@ -3,6 +3,9 @@ Library Service Module - Business Logic Functions
 Contains all the core business logic for the Library Management System
 """
 
+from database import init_database
+init_database()
+
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from database import (
@@ -30,7 +33,7 @@ def add_book_to_catalog(title: str, author: str, isbn: str, total_copies: int) -
         return False, "Title is required."
     
     if len(title.strip()) > 200:
-        return False, "Title must be less than 200 characters."
+        return False, "Title too long."
     
     if not author or not author.strip():
         return False, "Author is required."
