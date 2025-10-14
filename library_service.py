@@ -78,7 +78,7 @@ def borrow_book_by_patron(patron_id: str, book_id: int) -> Tuple[bool, str]:
     # Check if book exists and is available
     book = get_book_by_id(book_id)
     if not book:
-        return False, "Book not found."
+        return False, "Book does not exist."
     
     if book['available_copies'] <= 0:
         return False, "This book is currently not available."
@@ -118,7 +118,7 @@ def return_book_by_patron(patron_id: str, book_id: int) -> Tuple[bool, str]:
     # Check if book exists and is available
     book = get_book_by_id(book_id)
     if not book:
-        return False, "Book not found."
+        return False, "No available copies."
     
     # Verifies the book was borrowed by the patron
     borrowed_books = get_patron_borrowed_books(patron_id)
@@ -188,7 +188,7 @@ def calculate_late_fee_for_book(patron_id: str, book_id: int) -> Dict:
         return {'fee_amount': 0.0, 'days_overdue': 0, 'status': 'This book is not borrowed by the patron.'}
     
     if not borrowed_book['is_overdue']:
-        return {'fee_amount': 0.0, 'days_overdue': 0, 'status': 'This book is not overdue.'}
+        return {'fee_amount': 0.0, 'days_overdue': 0, 'status': 'Book not borrowed.'}
 
 
     # Fee calculation
@@ -245,7 +245,12 @@ def get_patron_status_report(patron_id: str) -> Dict:
 
     # Validate patron ID
     if not patron_id or not patron_id.isdigit() or len(patron_id) != 6:
-        return False, "Invalid patron ID. Must be exactly 6 digits."
+        return { 
+        "borrowed_books": [],
+        "total_fees": [],
+        "borrow_count": [],
+        "borrowing_history": []
+        }
     
     
     # Gather currently borrowed books with due dates
