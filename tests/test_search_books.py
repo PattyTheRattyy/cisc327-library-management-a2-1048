@@ -3,6 +3,18 @@ import pytest
 from library_service import (
     search_books_in_catalog
 )
+import os
+from database import init_database, add_sample_data, seed_test_patrons
+
+@pytest.fixture(autouse=True)
+def reset_db():
+    """Reset the database before each test."""
+    if os.path.exists('library.db'):
+        os.remove('library.db')
+    init_database()
+    add_sample_data()
+    seed_test_patrons()
+    yield
 
 # positive
 def test_search_exact_ISBN():

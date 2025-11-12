@@ -80,14 +80,15 @@ def borrow_book_by_patron(patron_id: str, book_id: int) -> Tuple[bool, str]:
     if not book:
         return False, "Book does not exist."
     
-    if book['available_copies'] <= 0:
-        return False, "This book is currently not available."
-    
     # Check patron's current borrowed books count
     current_borrowed = get_patron_borrow_count(patron_id)
     
+    if book['available_copies'] <= 0:
+        return False, "No available copies of this book."
+
     if current_borrowed >= 5:
-        return False, "You have reached the maximum borrowing limit of 5 books."
+        return False, "Borrow limit reached. You cannot borrow more than 5 books."
+
     
     # Create borrow record
     borrow_date = datetime.now()
@@ -118,27 +119,30 @@ def return_book_by_patron(patron_id: str, book_id: int) -> Tuple[bool, str]:
     # Check if book exists and is available
     book = get_book_by_id(book_id)
     if not book:
-        return False, "No available copies."
+        return False, "Book does not exist."
     
     # Verifies the book was borrowed by the patron
     borrowed_books = get_patron_borrowed_books(patron_id)
     borrowed_book = None
-    for b in borrowed_books:
-        if b['book_id'] == book_id:
-            borrowed_book = b
-            break
+    if borrowed_books:
+        for b in borrowed_books:
+            if b['book_id'] == book_id:
+                borrowed_book = b
+                break
 
-    if not borrowed_book:
-        return False, "This book is not borrowed by the patron."
+        if not borrowed_book:
+            return False, "does not exist"
     
 
     # Updates available copies and records return date
-    update_book_availability(borrowed_book, 1)
-    update_borrow_record_return_date(patron_id, borrowed_book, datetime.now())
+    update_book_availability(book_id, 1)
+    update_borrow_record_return_date(patron_id, book_id, datetime.now())
+
+
     
 
     # Calculates and displays any late fees owed
-    fees = calculate_late_fee_for_book(patron_id, borrowed_book)
+    fees = calculate_late_fee_for_book(patron_id, book_id)
     fee_amount = fees.get('fee_amount', 0.0)
     print(fees)
 
@@ -179,20 +183,20 @@ def calculate_late_fee_for_book(patron_id: str, book_id: int) -> Dict:
     borrowed_books = get_patron_borrowed_books(patron_id)
     borrowed_book = None
     
+    
     for b in borrowed_books:
         if b['book_id'] == book_id:
             borrowed_book = b
             break
 
     if not borrowed_book:
-        return {'fee_amount': 0.0, 'days_overdue': 0, 'status': 'This book is not borrowed by the patron.'}
+        return {'fee_amount': 0.0, 'days_overdue': 0, 'status': 'does not exist'}
     
-    if not borrowed_book['is_overdue']:
-        return {'fee_amount': 0.0, 'days_overdue': 0, 'status': 'Book not borrowed.'}
 
-
-    # Fee calculation
     days_overdue = (datetime.now() - borrowed_book['due_date']).days
+    if days_overdue <= 0:
+        return {'fee_amount': 0.0, 'days_overdue': 0, 'status': 'not borrowed.'}
+
     if days_overdue <= 7:
         fee_amount = days_overdue * 0.5
     else:
@@ -228,9 +232,11 @@ def search_books_in_catalog(search_term: str, search_type: str) -> List[Dict]:
         all_books = get_all_books()
         results = []
 
+        search_term = search_term.lower()
         for book in all_books:
             if search_term in book.get(search_type, "").lower():
-                results.append(book)        
+                results.append(book)
+       
         
         return results
 
@@ -245,11 +251,11 @@ def get_patron_status_report(patron_id: str) -> Dict:
 
     # Validate patron ID
     if not patron_id or not patron_id.isdigit() or len(patron_id) != 6:
-        return { 
-        "borrowed_books": [],
-        "total_fees": [],
-        "borrow_count": [],
-        "borrowing_history": []
+        return {
+            "borrowed_books": [],
+            "late_fees": 0.0,
+            "borrowed_books_count": 0,
+            "borrow_history":[]
         }
     
     
@@ -277,10 +283,11 @@ def get_patron_status_report(patron_id: str) -> Dict:
 
     return {
         "borrowed_books": borrowed_books,
-        "total_fees": total_fees,
-        "borrow_count": borrow_count,
-        "borrowing_history": borrowing_history
+        "late_fees": total_fees,
+        "borrowed_books_count": borrow_count,
+        "borrow_history": borrowing_history
     }
+
 
 
 

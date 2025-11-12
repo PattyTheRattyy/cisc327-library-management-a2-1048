@@ -58,7 +58,11 @@ def add_sample_data():
         sample_books = [
             ('The Great Gatsby', 'F. Scott Fitzgerald', '9780743273565', 3),
             ('To Kill a Mockingbird', 'Harper Lee', '9780061120084', 2),
-            ('1984', 'George Orwell', '9780451524935', 1)
+            ('1984', 'George Orwell', '9780451524935', 1),
+            ('The Scorch Trials', 'Patty Jenkins', '1234567899999', 5),
+            ('Sample Maxxing', 'Yurr Stevens', '1234567890123', 0),
+            ('Testing Labs', 'Stephen Yum', '1234567890124', 1)
+
         ]
         
         for title, author, isbn, copies in sample_books:
@@ -81,6 +85,71 @@ def add_sample_data():
         conn.commit()
     
     conn.close()
+
+
+
+from datetime import datetime, timedelta
+
+def seed_test_patrons():
+    """Seed the database with patrons and borrow records exactly matching test expectations."""
+
+    # Format: patron_id: list of tuples (book_id, borrow_days_ago, returned, overdue_days)
+    # borrow_days_ago: how many days ago they borrowed it
+    # returned: True if the book has been returned
+    # overdue_days: how many days past due (if applicable)
+    test_patrons = {
+        '123456': [
+            (1, 16, False, 0),   # returned book
+            (2, 10, False, 0),   # returned book
+            (3, 5, False, 0),   # currently borrowed, not overdue
+            (4, 12, False, 0),  # currently borrowed, not overdue
+            (5, 20, False, 5),  # currently borrowed, overdue 5 days
+        ],
+        '654321': [
+            (1, 16, True, 0),  # returned
+            (2, 5, False, 0),  # borrowed, not overdue
+        ],
+        '673123': [
+            (4, 20, False, 5),  # borrowed, overdue 5 days
+        ],
+        '456123': [
+            (3, 10, False, 0),  # borrowed, not overdue
+        ],
+        '431498': [
+            (4, 15, False, 30),  # borrowed, overdue 30 days
+        ],
+        '431455': [
+            (4, 12, False, 9),  # borrowed, overdue 9 days
+        ]
+    }
+    
+
+    for patron_id, records in test_patrons.items():
+        for book_id, borrow_days_ago, returned, overdue_days in records:
+            borrow_date = datetime.now() - timedelta(days=borrow_days_ago)
+            due_date = borrow_date + timedelta(days=14)  # standard 2-week loan
+            if overdue_days > 0:
+                due_date -= timedelta(days=overdue_days)  # push due date earlier to create overdue
+
+            return_date = datetime.now() if returned else None
+
+            # Check if record exists to avoid duplicates
+            existing = get_patron_borrowed_books(patron_id)
+            if any(b['book_id'] == book_id for b in existing):
+                continue
+
+            insert_borrow_record(
+                patron_id=patron_id,
+                book_id=book_id,
+                borrow_date=borrow_date,
+                due_date=due_date
+            )
+
+            # Update available copies (only decrement if currently borrowed)
+            if not returned:
+                update_book_availability(book_id, -1)
+
+
 
 # Helper Functions for Database Operations
 
